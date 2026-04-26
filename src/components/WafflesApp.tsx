@@ -8,6 +8,7 @@ import { useWafflesState } from "@/hooks/useWafflesState";
 export function WafflesApp() {
   const {
     state,
+    activeCanvas,
     toggleTheme,
     addProject,
     deleteProject,
@@ -34,6 +35,9 @@ export function WafflesApp() {
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
 
+  // Определяем, выбран ли хоть какой-то узел дерева
+  const hasActiveCanvas = !!(state.activeTopicId ?? state.activeProjectId);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -42,7 +46,10 @@ export function WafflesApp() {
         setDeletingNote(false);
         setDeletingConnection(false);
       }
-      if (e.key === "n" && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+      if (
+        e.key === "n" && !e.ctrlKey && !e.metaKey &&
+        !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
+      ) {
         addNote();
       }
     };
@@ -51,7 +58,7 @@ export function WafflesApp() {
   }, [addNote, setConnectingFrom, setDeletingNote, setDeletingConnection]);
 
   const handleConnectStart = useCallback((id: string) => {
-    if (state.connectingFromId) {
+    if (state.connectingFromId && state.connectingFromId !== "__pending__" && state.connectingFromId !== id) {
       addConnection(state.connectingFromId, id);
     } else {
       setConnectingFrom(id);
@@ -59,16 +66,22 @@ export function WafflesApp() {
   }, [state.connectingFromId, addConnection, setConnectingFrom]);
 
   const handleConnectEnd = useCallback((id: string) => {
-    if (state.connectingFromId && state.connectingFromId !== id) {
-      addConnection(state.connectingFromId, id);
+    if (!state.connectingFromId) return;
+    if (state.connectingFromId === "__pending__") {
+      setConnectingFrom(id);
+      return;
     }
-    setConnectingFrom(null);
+    if (state.connectingFromId !== id) {
+      addConnection(state.connectingFromId, id);
+    } else {
+      setConnectingFrom(null);
+    }
   }, [state.connectingFromId, addConnection, setConnectingFrom]);
 
   const handleTogglePin = useCallback((id: string) => {
-    const note = state.notes.find(n => n.id === id);
+    const note = activeCanvas.notes.find(n => n.id === id);
     if (note) updateNote(id, { pinned: !note.pinned });
-  }, [state.notes, updateNote]);
+  }, [activeCanvas.notes, updateNote]);
 
   const handleCancel = useCallback(() => {
     setConnectingFrom(null);
@@ -106,42 +119,53 @@ export function WafflesApp() {
           onWidthChange={setSidebarWidth}
         />
 
-        <CanvasArea
-          notes={state.notes}
-          connections={state.connections}
-          selectedNoteId={state.selectedNoteId}
-          connectingFromId={state.connectingFromId}
-          isDeletingNote={state.isDeletingNote}
-          isDeletingConnection={state.isDeletingConnection}
-          canvasOffset={state.canvasOffset}
-          canvasScale={state.canvasScale}
-          searchQuery={state.searchQuery}
-          onSelectNote={setSelectedNote}
-          onMoveNote={moveNote}
-          onUpdateNote={updateNote}
-          onDeleteNote={deleteNote}
-          onDuplicateNote={duplicateNote}
-          onConnectStart={handleConnectStart}
-          onConnectEnd={handleConnectEnd}
-          onTogglePin={handleTogglePin}
-          onDeleteConnection={deleteConnection}
-          onOffsetChange={setCanvasOffset}
-          onScaleChange={setCanvasScale}
-          onCanvasClick={() => { setSelectedNote(null); handleCancel(); }}
-        />
+        {hasActiveCanvas ? (
+          <CanvasArea
+            key={state.activeTopicId ?? state.activeProjectId ?? ""}
+            notes={activeCanvas.notes}
+            connections={activeCanvas.connections}
+            selectedNoteId={state.selectedNoteId}
+            connectingFromId={state.connectingFromId}
+            isDeletingNote={state.isDeletingNote}
+            isDeletingConnection={state.isDeletingConnection}
+            canvasOffset={activeCanvas.offset}
+            canvasScale={activeCanvas.scale}
+            searchQuery={state.searchQuery}
+            onSelectNote={setSelectedNote}
+            onMoveNote={moveNote}
+            onUpdateNote={updateNote}
+            onDeleteNote={deleteNote}
+            onDuplicateNote={duplicateNote}
+            onConnectStart={handleConnectStart}
+            onConnectEnd={handleConnectEnd}
+            onTogglePin={handleTogglePin}
+            onDeleteConnection={deleteConnection}
+            onOffsetChange={setCanvasOffset}
+            onScaleChange={setCanvasScale}
+            onCanvasClick={() => { setSelectedNote(null); handleCancel(); }}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center canvas-grid">
+            <div className="text-center opacity-25 select-none">
+              <div className="text-5xl mb-4">🧇</div>
+              <p className="text-sm font-medium">Выберите проект или тему</p>
+              <p className="text-xs mt-1 text-muted-foreground">в левой панели для работы с заметками</p>
+            </div>
+          </div>
+        )}
 
         <ActionPanel
           connectingFromId={state.connectingFromId}
           isDeletingNote={state.isDeletingNote}
           isDeletingConnection={state.isDeletingConnection}
-          canvasScale={state.canvasScale}
+          canvasScale={activeCanvas.scale}
           onAddNote={addNote}
-          onStartConnect={() => {}}
+          onStartConnect={() => setConnectingFrom("__pending__")}
           onStartDeleteNote={() => setDeletingNote(true)}
           onStartDeleteConnection={() => setDeletingConnection(true)}
           onResetView={handleResetView}
-          onZoomIn={() => setCanvasScale(state.canvasScale + 0.15)}
-          onZoomOut={() => setCanvasScale(state.canvasScale - 0.15)}
+          onZoomIn={() => setCanvasScale(activeCanvas.scale + 0.15)}
+          onZoomOut={() => setCanvasScale(activeCanvas.scale - 0.15)}
           onCancel={handleCancel}
         />
       </div>

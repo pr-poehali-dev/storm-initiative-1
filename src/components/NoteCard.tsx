@@ -77,7 +77,7 @@ export function NoteCard({
       onMouseDown={handleMouseDown}
     >
       {/* Card header */}
-      <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1.5">
+      <div className="relative flex items-center gap-1.5 px-3 pt-2.5 pb-1.5 pr-16">
         <button
           className="flex-shrink-0 opacity-40 hover:opacity-80"
           onClick={() => onTogglePin(note.id)}
@@ -89,7 +89,7 @@ export function NoteCard({
         {editing === "title" ? (
           <input
             autoFocus
-            className="flex-1 bg-transparent text-sm font-semibold outline-none border-b border-primary/40 pb-0.5"
+            className="flex-1 min-w-0 bg-transparent text-sm font-semibold outline-none border-b border-primary/40 pb-0.5"
             value={note.title}
             onChange={e => onUpdate(note.id, { title: e.target.value })}
             onBlur={() => setEditing(null)}
@@ -97,7 +97,7 @@ export function NoteCard({
           />
         ) : (
           <span
-            className="flex-1 text-sm font-semibold truncate cursor-text"
+            className="flex-1 min-w-0 text-sm font-semibold truncate cursor-text"
             onDoubleClick={() => setEditing("title")}
             title="Дважды щёлкните для редактирования"
           >
@@ -105,7 +105,13 @@ export function NoteCard({
           </span>
         )}
 
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ opacity: isSelected ? 1 : undefined }}>
+        {/* Кнопки вынесены в absolute, чтобы не влиять на ширину карточки */}
+        <div
+          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 transition-opacity"
+          style={{ opacity: isSelected ? 1 : 0 }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = isSelected ? "1" : "0"; }}
+        >
           <button
             className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-primary/10"
             onClick={e => { e.stopPropagation(); onDuplicate(note.id); }}

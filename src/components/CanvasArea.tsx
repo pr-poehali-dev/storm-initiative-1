@@ -89,7 +89,7 @@ export function CanvasArea({
       onClick={handleClick}
     >
       {/* Hint */}
-      {notes.length === 0 && (
+      {notes.length === 0 && !searchQuery && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
           <div className="text-center opacity-25">
             <div className="text-4xl mb-3">🧇</div>
@@ -154,7 +154,9 @@ export function CanvasArea({
       {/* Connecting mode hint */}
       {connectingFromId && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-full shadow-lg pointer-events-none">
-          Щёлкните на другую заметку для связи · Esc для отмены
+          {connectingFromId === "__pending__"
+            ? "Щёлкните на первую заметку (источник связи) · Esc для отмены"
+            : "Щёлкните на вторую заметку для завершения связи · Esc для отмены"}
         </div>
       )}
       {isDeletingNote && (

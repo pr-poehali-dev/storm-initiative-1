@@ -9,8 +9,6 @@ export interface Note {
   y: number;
   tags?: string[];
   pinned?: boolean;
-  projectId?: string;
-  topicId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -35,15 +33,21 @@ export interface Project {
   topics: TreeNode[];
 }
 
+/** Рабочая область конкретного узла (проекта или темы) */
+export interface CanvasData {
+  notes: Note[];
+  connections: Connection[];
+  offset: { x: number; y: number };
+  scale: number;
+}
+
 export interface AppState {
   theme: Theme;
   projects: Project[];
   activeProjectId: string | null;
   activeTopicId: string | null;
-  notes: Note[];
-  connections: Connection[];
-  canvasOffset: { x: number; y: number };
-  canvasScale: number;
+  /** Словарь: canvasId → данные рабочей области */
+  canvases: Record<string, CanvasData>;
   searchQuery: string;
   connectingFromId: string | null;
   selectedNoteId: string | null;
