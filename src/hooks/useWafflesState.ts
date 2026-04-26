@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import type { AppState, Note, Connection, Project, TreeNode, CanvasData } from "@/types/waffles";
+import type { AppState, Note, Connection, Project, TreeNode, CanvasData, Theme } from "@/types/waffles";
 
 const STORAGE_KEY = "waffles-state-v2";
 
@@ -359,6 +359,20 @@ export function useWafflesState() {
     setState(s => ({ ...s, searchQuery: q }));
   }, []);
 
+  // Загрузка данных из облака после авторизации
+  const loadCloudData = useCallback((data: { projects: unknown; canvases: unknown; theme: unknown }) => {
+    setState(s => ({
+      ...s,
+      projects: (data.projects as AppState["projects"]) ?? s.projects,
+      canvases: (data.canvases as AppState["canvases"]) ?? s.canvases,
+      theme: (data.theme as AppState["theme"]) ?? s.theme,
+      activeProjectId: null,
+      activeTopicId: null,
+      selectedNoteId: null,
+      connectingFromId: null,
+    }));
+  }, []);
+
   // ─── Derived: активный канвас ─────────────────────────────────────────────────
 
   const activeCanvas = getActiveCanvas(state);
@@ -388,5 +402,6 @@ export function useWafflesState() {
     setDeletingNote,
     setDeletingConnection,
     setSearchQuery,
+    loadCloudData,
   };
 }

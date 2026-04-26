@@ -1,0 +1,35 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Register new user",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "register", "email": "test_waffles@example.com", "password": "test123"},
+      "expectedStatus": 200,
+      "expectedBody": {"email": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login existing user",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "email": "test_waffles@example.com", "password": "test123"},
+      "expectedStatus": 200,
+      "expectedBody": {"userId": 0},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Wrong password",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "email": "test_waffles@example.com", "password": "wrongpass"},
+      "expectedStatus": 401
+    }
+  ]
+}

@@ -29,13 +29,21 @@ export function NoteCard({
   const dragStart = useRef<{ mx: number; my: number; nx: number; ny: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  const isPinned = !!note.pinned;
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button, textarea, input, label")) return;
-    if (isDeletingNote) { onDelete(note.id); return; }
+    // Закреплённые — запрет удаления и перемещения
+    if (isDeletingNote) {
+      if (!isPinned) onDelete(note.id);
+      return;
+    }
     if (isDeletingConnection) return;
     if (isConnecting) { onConnectEnd(note.id); return; }
     e.preventDefault();
     onSelect(note.id);
+    // Закреплённые нельзя перемещать
+    if (isPinned) return;
     dragStart.current = { mx: e.clientX, my: e.clientY, nx: note.x, ny: note.y };
 
     const onMove_ = (ev: MouseEvent) => {
@@ -53,7 +61,7 @@ export function NoteCard({
     };
     window.addEventListener("mousemove", onMove_);
     window.addEventListener("mouseup", onUp);
-  }, [note.id, note.x, note.y, isDeletingNote, isDeletingConnection, isConnecting, canvasScale, dragState, onDelete, onConnectEnd, onSelect, onMove]);
+  }, [note.id, note.x, note.y, isPinned, isDeletingNote, isDeletingConnection, isConnecting, canvasScale, dragState, onDelete, onConnectEnd, onSelect, onMove]);
 
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -67,23 +75,31 @@ export function NoteCard({
 
   const accentBorder = isSelected ? "ring-1 ring-primary/60" : "";
   const connectingStyle = isConnecting ? "ring-2 ring-primary animate-pulse cursor-crosshair" : "";
-  const deletingStyle = isDeletingNote ? "ring-2 ring-destructive/70 cursor-pointer hover:ring-destructive" : "";
+  // Закреплённые в режиме удаления — красная рамка с замком
+  const deletingStyle = isDeletingNote && !isPinned
+    ? "ring-2 ring-destructive/70 cursor-pointer hover:ring-destructive"
+    : isDeletingNote && isPinned
+    ? "ring-2 ring-muted/50 opacity-60 cursor-not-allowed"
+    : "";
+  // Курсор: закреплённые не перетаскиваются
+  const cursorClass = isPinned ? "cursor-default" : "";
 
   return (
     <div
       ref={cardRef}
-      className={`note-card fade-in bg-card border border-border rounded-xl shadow-lg ${accentBorder} ${connectingStyle} ${deletingStyle} ${dragState ? "dragging" : ""}`}
+      className={`note-card fade-in bg-card border rounded-xl shadow-lg ${isPinned ? "border-primary/40" : "border-border"} ${accentBorder} ${connectingStyle} ${deletingStyle} ${dragState ? "dragging" : ""} ${cursorClass}`}
       style={{ left: note.x, top: note.y, width: 260 }}
       onMouseDown={handleMouseDown}
     >
       {/* Card header */}
       <div className="relative flex items-center gap-1.5 px-3 pt-2.5 pb-1.5 pr-16">
+        {/* Pin button — всегда видна, чётко показывает состояние */}
         <button
-          className="flex-shrink-0 opacity-40 hover:opacity-80"
-          onClick={() => onTogglePin(note.id)}
-          title={note.pinned ? "Открепить" : "Закрепить"}
+          className={`flex-shrink-0 transition-colors ${isPinned ? "text-primary opacity-100" : "opacity-30 hover:opacity-70 text-muted-foreground"}`}
+          onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
+          title={isPinned ? "Открепить (сейчас закреплена)" : "Закрепить заметку"}
         >
-          <Icon name={note.pinned ? "Pin" : "PinOff"} size={12} className={note.pinned ? "text-primary" : ""} />
+          <Icon name={isPinned ? "Pin" : "Pin"} size={13} />
         </button>
 
         {editing === "title" ? (
@@ -105,7 +121,7 @@ export function NoteCard({
           </span>
         )}
 
-        {/* Кнопки вынесены в absolute, чтобы не влиять на ширину карточки */}
+        {/* Кнопки действий — absolute, не влияют на ширину */}
         <div
           className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 transition-opacity"
           style={{ opacity: isSelected ? 1 : 0 }}
@@ -126,15 +142,28 @@ export function NoteCard({
           >
             <Icon name="GitFork" size={11} />
           </button>
+          {/* Удаление — недоступно для закреплённых */}
           <button
-            className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={e => { e.stopPropagation(); onDelete(note.id); }}
-            title="Удалить"
+            className={`h-5 w-5 flex items-center justify-center rounded ${isPinned ? "text-muted-foreground/30 cursor-not-allowed" : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"}`}
+            onClick={e => {
+              e.stopPropagation();
+              if (!isPinned) onDelete(note.id);
+            }}
+            title={isPinned ? "Сначала открепите заметку" : "Удалить"}
+            disabled={isPinned}
           >
             <Icon name="X" size={11} />
           </button>
         </div>
       </div>
+
+      {/* Закреплена — бейдж */}
+      {isPinned && (
+        <div className="mx-3 mb-1 flex items-center gap-1 text-[10px] text-primary/70">
+          <Icon name="Pin" size={9} />
+          <span>Закреплена · перемещение и удаление заблокированы</span>
+        </div>
+      )}
 
       {/* Content */}
       <div className="px-3 pb-2">

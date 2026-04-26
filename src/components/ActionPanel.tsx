@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
 
 interface Props {
@@ -6,6 +5,8 @@ interface Props {
   isDeletingNote: boolean;
   isDeletingConnection: boolean;
   canvasScale: number;
+  isSaving: boolean;
+  isLoggedIn: boolean;
   onAddNote: () => void;
   onStartConnect: () => void;
   onStartDeleteNote: () => void;
@@ -14,6 +15,7 @@ interface Props {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onCancel: () => void;
+  onSave: () => void;
 }
 
 interface ActionBtnProps {
@@ -22,32 +24,37 @@ interface ActionBtnProps {
   onClick: () => void;
   active?: boolean;
   danger?: boolean;
-  className?: string;
+  success?: boolean;
+  disabled?: boolean;
+  spin?: boolean;
 }
 
-function ActionBtn({ icon, label, onClick, active, danger, className = "" }: ActionBtnProps) {
+function ActionBtn({ icon, label, onClick, active, danger, success, disabled, spin }: ActionBtnProps) {
   return (
     <button
       onClick={onClick}
       title={label}
+      disabled={disabled}
       className={[
         "w-9 h-9 flex items-center justify-center rounded-xl transition-all",
-        active && !danger ? "bg-primary text-primary-foreground shadow-lg" : "",
+        active && !danger && !success ? "bg-primary text-primary-foreground shadow-lg" : "",
         active && danger ? "bg-destructive text-destructive-foreground shadow-lg" : "",
-        !active && danger ? "text-muted-foreground hover:text-destructive hover:bg-destructive/10" : "",
-        !active && !danger ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "",
-        className,
+        success ? "bg-green-600/20 text-green-500" : "",
+        !active && !success && danger ? "text-muted-foreground hover:text-destructive hover:bg-destructive/10" : "",
+        !active && !success && !danger && !disabled ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "",
+        disabled ? "opacity-30 cursor-not-allowed" : "",
       ].filter(Boolean).join(" ")}
     >
-      <Icon name={icon} size={16} />
+      <Icon name={icon} size={16} className={spin ? "animate-spin" : ""} />
     </button>
   );
 }
 
 export function ActionPanel({
   connectingFromId, isDeletingNote, isDeletingConnection, canvasScale,
+  isSaving, isLoggedIn,
   onAddNote, onStartConnect, onStartDeleteNote, onStartDeleteConnection,
-  onResetView, onZoomIn, onZoomOut, onCancel,
+  onResetView, onZoomIn, onZoomOut, onCancel, onSave,
 }: Props) {
   const anyActive = connectingFromId !== null || isDeletingNote || isDeletingConnection;
 
@@ -55,11 +62,11 @@ export function ActionPanel({
     <div className="flex flex-col items-center gap-1 px-1.5 py-2.5 bg-card border-l border-border w-12 flex-shrink-0">
       {/* Main actions */}
       <div className="flex flex-col gap-1">
-        <ActionBtn icon="Plus" label="Добавить заметку" onClick={onAddNote} />
+        <ActionBtn icon="Plus" label="Добавить заметку (N)" onClick={onAddNote} />
         <div className="w-6 h-px bg-border mx-auto my-0.5" />
         <ActionBtn
           icon="GitFork"
-          label="Создать связь"
+          label="Создать связь между заметками"
           onClick={connectingFromId ? onCancel : onStartConnect}
           active={connectingFromId !== null}
         />
@@ -84,15 +91,25 @@ export function ActionPanel({
       {anyActive && (
         <>
           <div className="w-6 h-px bg-border mx-auto my-0.5" />
-          <ActionBtn icon="X" label="Отменить" onClick={onCancel} className="text-muted-foreground" />
+          <ActionBtn icon="X" label="Отменить" onClick={onCancel} />
         </>
       )}
 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* View controls */}
+      {/* Save to cloud */}
       <div className="flex flex-col gap-1">
+        <ActionBtn
+          icon={isSaving ? "Loader2" : "CloudUpload"}
+          label={isLoggedIn ? "Сохранить в облако" : "Войдите чтобы сохранить"}
+          onClick={onSave}
+          disabled={!isLoggedIn || isSaving}
+          spin={isSaving}
+          success={false}
+        />
+        <div className="w-6 h-px bg-border mx-auto my-0.5" />
+        {/* View controls */}
         <ActionBtn icon="ZoomIn" label="Приблизить" onClick={onZoomIn} />
         <ActionBtn icon="ZoomOut" label="Отдалить" onClick={onZoomOut} />
         <ActionBtn icon="Maximize2" label="Сбросить вид" onClick={onResetView} />

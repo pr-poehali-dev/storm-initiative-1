@@ -4,20 +4,50 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Icon from "@/components/ui/icon";
 import type { Theme } from "@/types/waffles";
+import type { AuthUser, CloudData } from "@/hooks/useAuth";
 
 interface Props {
   theme: Theme;
   onToggleTheme: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  user: AuthUser | null;
+  authLoading: boolean;
+  authError: string | null;
+  onAuth: (action: "login" | "register", email: string, password: string) => Promise<CloudData | null>;
+  onLogout: () => void;
+  onCloudDataLoaded: (data: CloudData) => void;
 }
 
-export function AppHeader({ theme, onToggleTheme, searchQuery, onSearchChange }: Props) {
+export function AppHeader({
+  theme, onToggleTheme, searchQuery, onSearchChange,
+  user, authLoading, authError, onAuth, onLogout, onCloudDataLoaded,
+}: Props) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) return;
+    const cloudData = await onAuth(authMode, email.trim().toLowerCase(), password);
+    if (cloudData) {
+      onCloudDataLoaded(cloudData);
+      setAuthOpen(false);
+      setEmail("");
+      setPassword("");
+    }
+  };
+
+  const handleClose = (open: boolean) => {
+    if (!open) {
+      setEmail("");
+      setPassword("");
+    }
+    setAuthOpen(open);
+  };
 
   return (
     <>
@@ -30,7 +60,7 @@ export function AppHeader({ theme, onToggleTheme, searchQuery, onSearchChange }:
 
         {/* Right controls */}
         <div className="flex items-center gap-1">
-          {/* Search — раскрывается влево */}
+          {/* Search */}
           {searchOpen ? (
             <div className="flex items-center gap-1">
               <Input
@@ -72,21 +102,36 @@ export function AppHeader({ theme, onToggleTheme, searchQuery, onSearchChange }:
             <Icon name={theme === "dark" ? "Sun" : "Moon"} size={15} />
           </Button>
 
-          {/* Auth */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 px-3 text-xs ml-1 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
-            onClick={() => setAuthOpen(true)}
-          >
-            <Icon name="User" size={13} className="mr-1.5" />
-            Войти
-          </Button>
+          {/* Auth block */}
+          {user ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <span className="text-xs text-muted-foreground hidden sm:block max-w-[120px] truncate">{user.email}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                onClick={onLogout}
+                title="Выйти"
+              >
+                <Icon name="LogOut" size={14} />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-3 text-xs ml-1 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+              onClick={() => setAuthOpen(true)}
+            >
+              <Icon name="User" size={13} className="mr-1.5" />
+              Войти
+            </Button>
+          )}
         </div>
       </header>
 
       {/* Auth modal */}
-      <Dialog open={authOpen} onOpenChange={setAuthOpen}>
+      <Dialog open={authOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-sm bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold flex items-center gap-2">
@@ -95,10 +140,7 @@ export function AppHeader({ theme, onToggleTheme, searchQuery, onSearchChange }:
             </DialogTitle>
           </DialogHeader>
 
-          <form
-            className="space-y-3 pt-1"
-            onSubmit={e => { e.preventDefault(); /* подключить бэкенд */ }}
-          >
+          <form className="space-y-3 pt-1" onSubmit={handleSubmit}>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Email</label>
               <Input
@@ -107,6 +149,8 @@ export function AppHeader({ theme, onToggleTheme, searchQuery, onSearchChange }:
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="h-8 text-sm bg-muted border-border"
+                disabled={authLoading}
+                required
               />
             </div>
             <div className="space-y-1">
@@ -115,25 +159,42 @@ export function AppHeader({ theme, onToggleTheme, searchQuery, onSearchChange }:
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="минимум 6 символов"
                 className="h-8 text-sm bg-muted border-border"
+                disabled={authLoading}
+                required
+                minLength={6}
               />
             </div>
+
+            {authError && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
+                {authError}
+              </p>
+            )}
 
             <Button
               type="submit"
               className="w-full h-8 text-sm bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={authLoading || !email.trim() || !password.trim()}
             >
-              {authMode === "login" ? "Войти" : "Создать аккаунт"}
+              {authLoading ? (
+                <span className="flex items-center gap-2">
+                  <Icon name="Loader2" size={13} className="animate-spin" />
+                  {authMode === "login" ? "Вход..." : "Создание..."}
+                </span>
+              ) : (
+                authMode === "login" ? "Войти" : "Создать аккаунт"
+              )}
             </Button>
 
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-center text-xs text-muted-foreground pt-1">
               {authMode === "login" ? (
                 <>Нет аккаунта?{" "}
                   <button
                     type="button"
-                    className="text-primary hover:underline"
-                    onClick={() => setAuthMode("register")}
+                    className="text-primary hover:underline font-medium"
+                    onClick={() => { setAuthMode("register"); }}
                   >
                     Зарегистрироваться
                   </button>
@@ -142,8 +203,8 @@ export function AppHeader({ theme, onToggleTheme, searchQuery, onSearchChange }:
                 <>Уже есть аккаунт?{" "}
                   <button
                     type="button"
-                    className="text-primary hover:underline"
-                    onClick={() => setAuthMode("login")}
+                    className="text-primary hover:underline font-medium"
+                    onClick={() => { setAuthMode("login"); }}
                   >
                     Войти
                   </button>

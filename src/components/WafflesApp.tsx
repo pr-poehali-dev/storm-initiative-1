@@ -4,6 +4,9 @@ import { SidebarPanel } from "@/components/SidebarPanel";
 import { CanvasArea } from "@/components/CanvasArea";
 import { ActionPanel } from "@/components/ActionPanel";
 import { useWafflesState } from "@/hooks/useWafflesState";
+import { useAuth } from "@/hooks/useAuth";
+import type { CloudData } from "@/hooks/useAuth";
+import type { Note } from "@/types/waffles";
 
 export function WafflesApp() {
   const {
@@ -31,11 +34,16 @@ export function WafflesApp() {
     setDeletingNote,
     setDeletingConnection,
     setSearchQuery,
+    loadCloudData,
   } = useWafflesState();
 
-  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const { user, loading: authLoading, error: authError, auth, logout, saveData } = useAuth();
 
-  // Определяем, выбран ли хоть какой-то узел дерева
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "ok" | "error">("idle");
+
+  // Активный canvas есть?
   const hasActiveCanvas = !!(state.activeTopicId ?? state.activeProjectId);
 
   // Keyboard shortcuts
@@ -79,7 +87,7 @@ export function WafflesApp() {
   }, [state.connectingFromId, addConnection, setConnectingFrom]);
 
   const handleTogglePin = useCallback((id: string) => {
-    const note = activeCanvas.notes.find(n => n.id === id);
+    const note = activeCanvas.notes.find((n: Note) => n.id === id);
     if (note) updateNote(id, { pinned: !note.pinned });
   }, [activeCanvas.notes, updateNote]);
 
@@ -94,6 +102,26 @@ export function WafflesApp() {
     setCanvasScale(1);
   }, [setCanvasOffset, setCanvasScale]);
 
+  // Загрузка облачных данных после входа
+  const handleCloudDataLoaded = useCallback((data: CloudData) => {
+    loadCloudData(data);
+  }, [loadCloudData]);
+
+  // Сохранение в облако
+  const handleSave = useCallback(async () => {
+    if (!user || isSaving) return;
+    setIsSaving(true);
+    setSaveStatus("idle");
+    const ok = await saveData({
+      projects: state.projects,
+      canvases: state.canvases as Record<string, unknown>,
+      theme: state.theme,
+    });
+    setIsSaving(false);
+    setSaveStatus(ok ? "ok" : "error");
+    setTimeout(() => setSaveStatus("idle"), 3000);
+  }, [user, isSaving, saveData, state.projects, state.canvases, state.theme]);
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
       <AppHeader
@@ -101,7 +129,20 @@ export function WafflesApp() {
         onToggleTheme={toggleTheme}
         searchQuery={state.searchQuery}
         onSearchChange={setSearchQuery}
+        user={user}
+        authLoading={authLoading}
+        authError={authError}
+        onAuth={auth}
+        onLogout={logout}
+        onCloudDataLoaded={handleCloudDataLoaded}
       />
+
+      {/* Save status toast */}
+      {saveStatus !== "idle" && (
+        <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-50 text-xs px-4 py-2 rounded-full shadow-lg ${saveStatus === "ok" ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>
+          {saveStatus === "ok" ? "✓ Данные сохранены в облако" : "✗ Ошибка сохранения. Попробуйте снова."}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <SidebarPanel
@@ -159,6 +200,8 @@ export function WafflesApp() {
           isDeletingNote={state.isDeletingNote}
           isDeletingConnection={state.isDeletingConnection}
           canvasScale={activeCanvas.scale}
+          isSaving={isSaving}
+          isLoggedIn={!!user}
           onAddNote={addNote}
           onStartConnect={() => setConnectingFrom("__pending__")}
           onStartDeleteNote={() => setDeletingNote(true)}
@@ -167,6 +210,7 @@ export function WafflesApp() {
           onZoomIn={() => setCanvasScale(activeCanvas.scale + 0.15)}
           onZoomOut={() => setCanvasScale(activeCanvas.scale - 0.15)}
           onCancel={handleCancel}
+          onSave={handleSave}
         />
       </div>
     </div>
